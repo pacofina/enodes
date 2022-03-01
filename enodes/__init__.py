@@ -1,2 +1,6 @@
+from .ui   import channelbox
+from .node import Node, NodeList, NodeAttribute, Namespace
 
-from .enodes import *
+reload( channelbox )
+
+Node.getSelectedAttrs = channelbox.get_selected_attrs

@@ -7,6 +7,8 @@ import re
 import maya.cmds         as mc
 import maya.api.OpenMaya as om
 
+from .animation import KeyframeList, Animation
+
 class Node(object):
 
 	@staticmethod
@@ -30,47 +32,6 @@ class Node(object):
 	@staticmethod
 	def create( type, **args ):
 		return Node( mc.createNode( type, **args ), False )
-
-	@staticmethod
-	def getSelectedAttrs():
-		
-		import maya.mel as mel
-		channelBox = mel.eval('global string $gChannelBoxName; $temp=$gChannelBoxName;')	#fetch maya's main channelbox
-		
-		sel = []
-		
-		# Objects
-		for n in NodeList( mc.channelBox( channelBox, q=True, mainObjectList=True ) ):
-			attrs = mc.channelBox( channelBox, q=True, selectedMainAttributes=True )
-			
-			if attrs:
-				for attr in attrs:
-					sel.append( n[attr] )
-
-		# Shape
-		for n in NodeList( mc.channelBox( channelBox, q=True, shapeObjectList=True ) ):
-			attrs = mc.channelBox( channelBox, q=True, selectedShapeAttributes=True )
-			
-			if attrs:
-				for attr in attrs:
-					sel.append( n[attr] )
-		
-		# History
-		for n in NodeList( mc.channelBox( channelBox, q=True, historyObjectList=True ) ):
-			attrs = mc.channelBox( channelBox, q=True, selectedHistoryAttributes=True )
-			
-			if attrs:
-				for attr in attrs:
-					sel.append( n[attr] )
-
-		# Outputs
-		for n in NodeList( mc.channelBox( channelBox, q=True, outputObjectList=True ) ):
-			attrs = mc.channelBox( channelBox, q=True, selectedOutputAttributes=True )
-			
-			for attr in attrs:
-				sel.append( n[attr] )
-
-		return sel
 
 	@staticmethod
 	def splitName( name ):
@@ -123,9 +84,6 @@ class Node(object):
 
 		self._MFnDependencyNode = mFnDependencyNode
 		self._MDagPath          = mDagPath
-
-		self._attributes = None
-		self._animation  = None
 		
 	def __str__( self ):
 		
@@ -269,17 +227,11 @@ class Node(object):
 	
 	@property
 	def attributes( self ):
-		if self._attributes == None:
-			self._attributes = NodeAttributeCollection( self )
-
-		return self._attributes
+		return NodeAttributeCollection( self )
 
 	@property
 	def animation( self ):
-		if self._animation == None:
-			self._animation = Animation( [self.name] )
-
-		return self._animation
+		return Animation( [self.name] )
 
 	@property
 	def connections( self ):
@@ -378,8 +330,7 @@ class Node(object):
 	def referenceNamespace( self, value ):
 		# Avoid to assign the same value because maya will add a number at the end.
 		if value.lstrip(":") != self.referenceNamespace.lstrip(":"):
-			mc.file( self.getReferenceFile(), e=True, namespace=value )
-		
+			mc.file( self.getReferenceFile(), e=True, namespace=value )		
 
 class NodeAttribute(object):
 
@@ -707,8 +658,6 @@ class NodeList(object):
 			except:
 				raise Exception( "Object '%s' doesn't exists" % n )
 		
-		self._animation = None
-		
 	def __iter__( self ):
 		
 		length = self._MSelectionList.length()
@@ -781,10 +730,7 @@ class NodeList(object):
 
 	@property
 	def animation( this ):
-		if not this._animation:
-			this._animation = Animation( this._innerList )
-
-		return this._animation
+		return Animation( this._innerList )
 		
 	def setAttr( self, attrName, value ):
 		
@@ -857,136 +803,18 @@ class NodeAttributeCollection(object):
 		
 		return NodeAttribute( self._node, name )
 
-class Animation(object):
-	
-	def __init__( this, source ):
-		this._source = source
-
-	@property
-	def start( this ):
-		range = this.range
-		if range:
-			return range[0]
-		else:
-			return None
-
-	@start.setter
-	def start( this, value ):
-		range = this.range
-		if range and range[0] < range[1]:
-			if value > range[1]:
-				raise Exception( "Value must be lower or equal than end." )
-			
-			this.range = (value,range[1])
-		else:
-			raise Exception( "No animation or single frame." )
-
-	@property
-	def end( this ):
-		range = this.range
-		if range:
-			return range[1]
-		else:
-			return None
-
-	@end.setter
-	def end( this, value ):
-		range = this.range
-		if range and range[0] < range[1]:
-			if value < range[0]:
-				raise Exception( "Value must be greater or equal than start." )
-			
-			this.range = (range[0],value)
-		else:
-			raise Exception( "No animation or single frame." )
-		
-	@property
-	def length( this ):
-		range = this.range
-
-		if range:
-			return range[1] - range[0] + 1
-		else:
-			return None
-	
-	@length.setter
-	def length( this, value ):
-		range = this.range
-		
-		if range and range[0] < range[1]:
-			this.range = (range[0], range[0] + value - 1)
-		else:
-			raise Exception( "No animation or a single key." )
-
-	@property
-	def range( this ):
-		keys = mc.keyframe( this._source, q=True, timeChange=True )
-
-		if keys:
-			keys.sort()
-			return keys[0], keys[-1]
-		else:
-			return None
-	
-	@range.setter
-	def range( this, value ):
-		mc.scaleKey( this._source, iub=False, newStartTime=value[0], newEndTime=value[1] )
-
-class KeyframeList(object):
-	
-	def __init__( this, attribute ):
-		this._attribute = attribute
-		
-	@property
-	def hasConstantValue( this ):
-		
-		tKey = mc.keyframe( str(this._attribute), query=True )
-		
-		if not tKey or len(tKey) == 1:
-			return True
-		
-		r     = True
-		value = mc.keyframe( str(this._attribute), time=(tKey[0],tKey[0]), q=True, eval=True )
-		
-		for t in KeyframeList._drange( tKey[1], tKey[-1], 1.0 ):
-			if value != mc.keyframe( str(this._attribute), time=(t,t), q=True, eval=True ):
-				r = False
-				break
-				
-		return r
-	
-	@staticmethod
-	def _drange( start, stop, step ):
-		r = start
-		while r < stop:
-			yield r
-			r += step
-
 class Namespace(object):
-
-	_root = None
 
 	@staticmethod
 	def fromNodeName( nodeName ):
-
-		dag, ns, name = Node.splitName( nodeName )
-		
-		if ns:
-			return Namespace( ":"+ ns )
-		else:
-			if not Namespace._root:
-				Namespace._root = Namespace( ":" )
-
-			return Namespace._root
+		return Node( nodeName ).namespace
 	
 	@staticmethod
 	def getCurrent():
 		ns = mc.namespaceInfo( currentNamespace=True, absoluteName=True )
 	
 		if mc.namespace( q=True, isRootNamespace=True ):
-			if not Namespace._root:
-				Namespace._root = Namespace( ns )
-			return Namespace._root
+			return Namespace( ns )
 		else:
 			return Namespace( ns )
 	
@@ -1038,7 +866,6 @@ class Namespace(object):
 	
 	@staticmethod
 	def create( name ):
-	
 		return Namespace( mc.namespace( addNamespace=name, absoluteName=True ) )
 	
 	def __init__( self, path ):
@@ -1065,7 +892,7 @@ class Namespace(object):
 		ls = this.ls( query=key, recursive=False )
 
 		if not ls:
-			raise KeyError();
+			raise KeyError()
 
 		return ls[0]
 	
@@ -1097,10 +924,7 @@ class Namespace(object):
 			if path != "":
 				return Namespace( path )
 			else:
-				if not Namespace._root:
-					Namespace._root = Namespace( ":" )
-
-				return Namespace._root
+				return Namespace(":")
 		else:
 			return None
 	
@@ -1143,7 +967,7 @@ class NamespaceList(object):
 
 	def __init__( this, list ):
 
-		this._list = list;
+		this._list = list
 
 	def __iter__( this ):
 
