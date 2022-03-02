@@ -221,6 +221,16 @@ class Node(object):
 	def children( self ):
 		return NodeList( mc.listRelatives( str(self), path=True ) )
 
+	def isChildOf( self, node ):
+		p = self._MDagPath.pop()
+		r = False
+
+		while p and not r:
+			r = p == node._MDagPath
+			p = p.pop() if not r and p.length() > 1 else None
+
+		return r
+
 	@property
 	def attrs( self ):
 		return self.attributes
@@ -533,6 +543,12 @@ class NodeAttribute(object):
 	def outputs( self ):
 		return NodeAttributeList( mc.connectionInfo( str(self), destinationFromSource=True ) )
 	
+	def ensure_input( self, source, **args ):
+		input = self.input
+
+		if not input or str(input) != str(source):
+			self.connect( source, force=True )
+
 	def connect( self, source, **args ):
 		mc.connectAttr( str(source), str(self), **args )
 	
@@ -774,9 +790,11 @@ class NodeAttributeCollection(object):
 			if not '.' in n:
 				yield NodeAttribute( self._node, n )
 
-	def contains( self, attribute ):
-
+	def __contains__( self, attribute ):
 		return mc.attributeQuery( attribute, node=str(self._node), ex=True )
+
+	def contains( self, attribute ):
+		return attribute in self
 
 	def remove( self, attribute ):
 
