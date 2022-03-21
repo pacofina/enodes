@@ -34,7 +34,7 @@ class Node(object):
 	def create( type, **args ):
 		return Node( mc.createNode( type, **args ), False )
 
-	def __init__( self, name, mObject=None, mDagPath=None ):
+	def __init__( self, name=None, mObject=None, mDagPath=None ):
 
 		if name:
 			mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
@@ -618,24 +618,22 @@ class NodeConnectionList(object):
 class NodeList(object):
 	
 	def __init__( self, innerList ):
+		self._innerList = [Node( mObject=o, mDagPath=d ) for o, d in utils.iter_MObjectAndMDagPath( *innerList )]
 		
-		self._innerList = list( utils.iter_MObjectAndMDagPath( *innerList ) )
-		
-	def __iter__( self ):
-		self._innerList.__iter__()
-	
 	def __str__( self ):
 		return str( self._innerList )
 	
 	def __repr__( self ):
-		
 		return str(self)
 		
+	def __iter__( self ):
+		return self._innerList.__iter__()
+
 	def __len__( self ):
 		return len(self._innerList)
 	
 	def __getitem__( self, index ):
-		self._innerList[index]
+		return self._innerList[index]
 	
 	def __nonzero__( self ):
 		return bool(self._innerList)
