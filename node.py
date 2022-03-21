@@ -7,6 +7,7 @@ import re
 import maya.cmds         as mc
 import maya.api.OpenMaya as om
 
+from .          import utils
 from .animation import KeyframeList, Animation
 
 class Node(object):
@@ -33,56 +34,13 @@ class Node(object):
 	def create( type, **args ):
 		return Node( mc.createNode( type, **args ), False )
 
-	@staticmethod
-	def splitName( name ):
-
-		dag = name.rfind('|')
-		
-		if dag == -1:
-			n = name.rfind(':')
-
-			if n == -1:
-				return None, None, name[ n + 1: ]
-			else:
-				return None, name[ :n ], name[ n + 1: ]
-		else:	
-			n = name.rfind( ':', dag )
-			
-			if n == -1:
-				return name[ :dag ], None, name[ dag + 1: ]
-			else:
-				return name[ :dag ], name[ dag + 1:n ], name[ n + 1: ]
-
-	@staticmethod
-	def _fromMSelectionList( mSelectionList, index ):
-
-		n, d = Node._getNodeAndPath( mSelectionList, index )
-		return Node( None, mFnDependencyNode=n, mDagPath=d )
-			
-	@staticmethod
-	def _getNodeAndPath( mSelectionlist, index ):
-		
-		try:
-			mFnDependencyNode = om.MFnDependencyNode( mSelectionlist.getDependNode( index ) )
-			mDagPath          = mSelectionlist.getDagPath( index )
-		except TypeError:
-			mDagPath          = None
-			pass # Object is not a DagPath
-
-		return mFnDependencyNode, mDagPath
-	
-	def __init__( self, name, mFnDependencyNode=None, mDagPath=None ):
+	def __init__( self, name, mObject=None, mDagPath=None ):
 
 		if name:
-			try:
-				sel = om.MSelectionList()
-				sel.add( name )
-
-				mFnDependencyNode, mDagPath = Node._getNodeAndPath( sel, 0 )
-			except RuntimeError:
-				raise ValueError( "Node '%s' doesn't exists." % name )
-
-		self._MFnDependencyNode = mFnDependencyNode
+			mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
+			
+		self._MObjectHandle     = om.MObjectHandle( mObject )
+		self._MFnDependencyNode = om.MFnDependencyNode( mObject )
 		self._MDagPath          = mDagPath
 		
 	def __str__( self ):
@@ -105,7 +63,7 @@ class Node(object):
 		return not self.__eq__( other )
 
 	def __hash__( self ):
-		return self._MFnDependencyNode.userNode().__hash__()
+		return self._MObjectHandle.hashCode()
 	
 	@property
 	def isDagNode( self ):
@@ -134,7 +92,7 @@ class Node(object):
 
 	@property
 	def nameWithoutNamespace( self ):
-		return Node.splitName( self.name )[2]
+		return utils.splitName( self.name )[2]
 	
 	@nameWithoutNamespace.setter
 	def nameWithoutNamespace( self, value ):
@@ -661,28 +619,12 @@ class NodeList(object):
 	
 	def __init__( self, innerList ):
 		
-		if innerList:
-			self._innerList = innerList
-		else:
-			self._innerList = []
-		
-		self._MSelectionList = om.MSelectionList()
-		
-		for n in self._innerList:
-			try:
-				self._MSelectionList.add( n )
-			except:
-				raise Exception( "Object '%s' doesn't exists" % n )
+		self._innerList = list( utils.iter_MObjectAndMDagPath( *innerList ) )
 		
 	def __iter__( self ):
-		
-		length = self._MSelectionList.length()
-
-		for index in range( 0, length ):
-			yield self[ index ]
+		self._innerList.__iter__()
 	
 	def __str__( self ):
-		
 		return str( self._innerList )
 	
 	def __repr__( self ):
@@ -693,60 +635,43 @@ class NodeList(object):
 		return len(self._innerList)
 	
 	def __getitem__( self, index ):
-		
-		if isinstance( index, int ):
-			return Node._fromMSelectionList( self._MSelectionList, index )
-		else:
-			raise ValueError( "Int expected." )
+		self._innerList[index]
 	
 	def __nonzero__( self ):
-		
 		return bool(self._innerList)
 
-	def getInputs( this, type=None ):
+	def getInputs( self, type=None ):
+		return self.getConnections( inputs=True, outputs=False, type=type )
 
-		return this.getConnections( inputs=True, outputs=False, type=type )
+	def getOutputs( self, type=None ):
+		return self.getConnections( inputs=False, outputs=True, type=type )
 
-	def getOutputs( this, type=None ):
-
-		return this.getConnections( inputs=False, outputs=True, type=type )
-
-	def getConnections( this, inputs=True, outputs=True, type=None, attrs=False ):
+	def getConnections( self, inputs=True, outputs=True, type=None, attrs=False ):
 
 		if type:
-			list = mc.listConnections( this._innerList, source=inputs, destination=outputs, type=type )
+			conns = mc.listConnections( self.nodeNames, source=inputs, destination=outputs, type=type )
 		else:
-			list = mc.listConnections( this._innerList, source=inputs, destination=outputs )
+			conns = mc.listConnections( self.nodeNames, source=inputs, destination=outputs )
 		
-		if list:
-			ls = []
-
-			for n in list:
-				if not n in ls:
-					ls.append( n );
-		
-			return NodeList( ls )
+		if conns:
+			return NodeList( list(set(conns)) )
 		else:
 			return NodeList( [] )
 	
 	def delete( this ):
-
-		mc.delete( this._innerList )
-
-	@property
-	def first( this ):
-		if len(this) > 0:
-			return this[ 0 ]
-		else:
-			return None
+		mc.delete( this.nodeNames )
 
 	@property
-	def nodeNames( this ):
-		return this._innerList;
+	def first( self ):
+		return next( self._innerList.__iter__(), None )
 
 	@property
-	def animation( this ):
-		return Animation( this._innerList )
+	def nodeNames( self ):
+		return [str(n) for n in self._innerList]
+
+	@property
+	def animation( self ):
+		return Animation( self.nodeNames )
 		
 	def setAttr( self, attrName, value ):
 		
