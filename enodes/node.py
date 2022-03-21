@@ -280,8 +280,8 @@ class Node(object):
 	def isLoaded( self ):
 		return mc.referenceQuery( str(self), isLoaded=True )
 
-	def loadReference( self ):
-		mc.file( self.getReferenceFile(), loadReference=str(self) )
+	def loadReference( self, **kwargs ):
+		mc.file( self.getReferenceFile(), loadReference=str(self), **kwargs )
 
 	def unloadReference( self ):
 		referenceFile = mc.referenceQuery( str(self), filename=True )
