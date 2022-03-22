@@ -618,7 +618,7 @@ class NodeConnectionList(object):
 class NodeList(object):
 	
 	def __init__( self, innerList ):
-		self._innerList = [Node( mObject=o, mDagPath=d ) for o, d in utils.iter_MObjectAndMDagPath( *innerList )]
+		self._innerList = [Node( mObject=o, mDagPath=d ) for o, d in utils.iter_MObjectAndMDagPath( *innerList )] if innerList else []
 		
 	def __str__( self ):
 		return str( self._innerList )
@@ -748,7 +748,12 @@ class Namespace(object):
 
 	@staticmethod
 	def fromNodeName( nodeName ):
-		return Node( nodeName ).namespace
+		dag, ns, name = utils.splitName( nodeName )
+		
+		if ns:
+			return Namespace( ":"+ ns )
+		else:
+			return Namespace( ":" )
 	
 	@staticmethod
 	def getCurrent():
