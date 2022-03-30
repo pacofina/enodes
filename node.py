@@ -112,11 +112,11 @@ class Node(object):
 
 	@property
 	def type( self ):
-		return mc.nodeType( str(self) )
+		return self._MFnDependencyNode.typeName
 
 	@property
 	def locked( self ):
-		return mc.lockNode( str(self), q=True )[0]
+		return self._MFnDependencyNode.isLocked
 	
 	@locked.setter
 	def locked( self, value ):
@@ -684,6 +684,9 @@ class NodeAttributeList(object):
 	def __iter__( self ):
 		for n in self._list:
 			yield NodeAttribute.fromName( n )
+
+	def __len__( self ):
+		return len(self._list)
 
 	def __nonzero__( self ):
 		return bool( self._list )
