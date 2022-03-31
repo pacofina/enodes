@@ -729,13 +729,18 @@ class NodeAttributeCollection(object):
 		except:
 			raise KeyError( "Node '%s' has not attribute '%s'." % (self._node, attribute) )
 	
-	def add( self, name, type=None, **args ):
+	def add( self, name, type=None, keyable=True, hidden=False, **args ):
 		
 		if type:
 			args["at"] = type
 		
 		mc.addAttr( str(self._node), ln=name, **args )
-		return NodeAttribute( self._node, name )
+		attr = NodeAttribute( self._node, name )
+		# I found this values are not set using addAttr
+		attr.keyable = keyable
+		attr.hidden  = hidden
+
+		return attr
 
 	def addRotate( self, name ):
 		n = str(self._node)
