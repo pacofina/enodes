@@ -448,6 +448,11 @@ class NodeAttribute(object):
 		mc.setAttr( str(self), keyable=value )
 
 	@property
+	def isProxy( self ):
+		mobject = self._node._MFnDependencyNode.attribute( self._attribute )
+		return om.MFnAttribute( mobject ).isProxyAttribute
+
+	@property
 	def minValue( self ):
 		if mc.attributeQuery( self._attribute, node=str(self._node), minExists=True ):
 			return mc.attributeQuery( self._attribute, node=str(self._node), minimum=True )[0]
