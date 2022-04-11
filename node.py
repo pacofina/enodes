@@ -129,11 +129,11 @@ class Node(object):
 
 	@property
 	def type( self ):
-		return mc.nodeType( str(self) )
+		return self._MFnDependencyNode.typeName
 
 	@property
 	def locked( self ):
-		return mc.lockNode( str(self), q=True )[0]
+		return self._MFnDependencyNode.isLocked
 	
 	@locked.setter
 	def locked( self, value ):
@@ -474,6 +474,11 @@ class NodeAttribute(object):
 		mc.setAttr( str(self), keyable=value )
 
 	@property
+	def isProxy( self ):
+		mobject = self._node._MFnDependencyNode.attribute( self._attribute )
+		return om.MFnAttribute( mobject ).isProxyAttribute
+
+	@property
 	def minValue( self ):
 		if mc.attributeQuery( self._attribute, node=str(self._node), minExists=True ):
 			return mc.attributeQuery( self._attribute, node=str(self._node), minimum=True )[0]
@@ -644,7 +649,7 @@ class NodeConnectionList(object):
 class NodeList(object):
 	
 	def __init__( self, innerList ):
-		self._innerList = [Node( mObject=o, mDagPath=d ) for o, d in utils.iter_MObjectAndMDagPath( *innerList )]
+		self._innerList = [Node( mObject=o, mDagPath=d ) for o, d in utils.iter_MObjectAndMDagPath( *innerList )] if innerList else []
 		
 	def __str__( self ):
 		return str( self._innerList )
@@ -711,6 +716,9 @@ class NodeAttributeList(object):
 		for n in self._list:
 			yield NodeAttribute.fromName( n )
 
+	def __len__( self ):
+		return len(self._list)
+
 	def __nonzero__( self ):
 		return bool( self._list )
 			
@@ -752,13 +760,18 @@ class NodeAttributeCollection(object):
 		except:
 			raise KeyError( "Node '%s' has not attribute '%s'." % (self._node, attribute) )
 	
-	def add( self, name, type=None, **args ):
+	def add( self, name, type=None, keyable=True, hidden=False, **args ):
 		
 		if type:
 			args["at"] = type
 		
 		mc.addAttr( str(self._node), ln=name, **args )
-		return NodeAttribute( self._node, name )
+		attr = NodeAttribute( self._node, name )
+		# I found this values are not set using addAttr
+		attr.keyable = keyable
+		attr.hidden  = hidden
+
+		return attr
 
 	def addRotate( self, name ):
 		n = str(self._node)
@@ -774,7 +787,12 @@ class Namespace(object):
 
 	@staticmethod
 	def fromNodeName( nodeName ):
-		return Node( nodeName ).namespace
+		dag, ns, name = utils.splitName( nodeName )
+		
+		if ns:
+			return Namespace( ":"+ ns )
+		else:
+			return Namespace( ":" )
 	
 	@staticmethod
 	def getCurrent():
