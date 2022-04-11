@@ -10,7 +10,32 @@ import maya.api.OpenMaya as om
 from .          import utils
 from .animation import KeyframeList, Animation
 
+_nodetypes = {}
+
+def registerCustomType( type_name, type ):
+	_nodetypes[ type_name ] = type
+
+class NodeMetaclass(type):
+
+	def __call__( self, name=None, mObject=None, mDagPath=None ):
+		if name:
+			mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
+		
+		dependencyNode = om.MFnDependencyNode( mObject )
+
+		if mDagPath:
+			customtype = _nodetypes.get( dependencyNode.typeName, DagNode )
+			instance   = object.__new__( customtype )
+			instance.__init__( mObject, dependencyNode, mDagPath )
+		else:
+			customtype = _nodetypes.get( dependencyNode.typeName, Node )
+			instance   = object.__new__( customtype )
+			instance.__init__( mObject, dependencyNode )
+
+		return instance
+
 class Node(object):
+	__metaclass__ = NodeMetaclass
 
 	@staticmethod
 	def ls( *args, **kwArgs ):
@@ -34,21 +59,13 @@ class Node(object):
 	def create( type, **args ):
 		return Node( mc.createNode( type, **args ), False )
 
-	def __init__( self, name=None, mObject=None, mDagPath=None ):
-
-		if name:
-			mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
-			
+	def __init__( self, mObject, mFnDependencyNode ):
 		self._MObjectHandle     = om.MObjectHandle( mObject )
-		self._MFnDependencyNode = om.MFnDependencyNode( mObject )
-		self._MDagPath          = mDagPath
+		self._MFnDependencyNode = mFnDependencyNode
 		
 	def __str__( self ):
 		
-		if self._MDagPath:
-			return self._MDagPath.partialPathName()
-		else:
-			return self.name
+		return self.name
 	
 	def __repr__(self):
 		return str(self)
@@ -67,7 +84,7 @@ class Node(object):
 	
 	@property
 	def isDagNode( self ):
-		return bool(self._MDagPath)
+		return isinstance( self, DagNode)
 
 	@property
 	def name( self ):
@@ -121,6 +138,102 @@ class Node(object):
 	@locked.setter
 	def locked( self, value ):
 		mc.lockNode( str(self), lock=value )
+
+	@property
+	def attrs( self ):
+		return self.attributes
+	
+	@property
+	def attributes( self ):
+		return NodeAttributeCollection( self )
+
+	@property
+	def animation( self ):
+		return Animation( [self.name] )
+
+	@property
+	def connections( self ):
+		return NodeConnectionList( self )
+
+	@property
+	def outputs( self ):
+		return NodeConnectionList( self, source=False )
+
+	@property
+	def inputs( self ):
+		return NodeConnectionList( self, destination=False )
+
+	def getInputs( self, **args ):
+		return NodeList( [str(self)] ).getInputs( **args )
+
+	def getOutputs( self, **args ):
+		return NodeList( [str(self)] ).getOutputs( **args )
+	
+	def delete( self ):
+		mc.delete( str(self) )
+		
+	def createInstance( self, **kwArgs ):
+	
+		return Node( mc.instance( str(self), **kwArgs )[0], False )
+	
+	def createIntermediateObject( this ):
+		iop = Node( mc.duplicate( str(this) )[0] )
+		io  = iop.shapes[0]
+		mc.parent( str(io), str(this.parent), s=True, add=True )
+		mc.delete( str(iop) )
+		io["io"].value = True
+
+		return io
+	
+	@property
+	def isReferenced( this ):
+		return mc.referenceQuery( str(this), isNodeReferenced=True )
+
+	@property
+	def referenceNode( this ):
+		try:
+			return Node( mc.referenceQuery( str(this), referenceNode=True ) )
+		except:
+			return None
+
+	def referenceFile( self ):
+		return self.getReferenceFile( widthoutCopyNumber=True )
+
+	def getReferenceFile( self, withoutCopyNumber=False ):
+		return mc.referenceQuery( str(self), filename=True, withoutCopyNumber=withoutCopyNumber )
+
+	def isLoaded( self ):
+		return mc.referenceQuery( str(self), isLoaded=True )
+
+	def loadReference( self ):
+		mc.file( self.getReferenceFile(), loadReference=str(self) )
+
+	def unloadReference( self ):
+		referenceFile = mc.referenceQuery( str(self), filename=True )
+		mc.file( self.getReferenceFile(), unloadReference=True )
+
+	def removeReference( self, removeRemainingNodes=False ):
+		mc.file( self.getReferenceFile(), removeReference=True, force=removeRemainingNodes )
+
+	@property
+	def referenceNamespace( self ):
+		return mc.referenceQuery( str(self), namespace=True )
+
+	@referenceNamespace.setter
+	def referenceNamespace( self, value ):
+		# Avoid to assign the same value because maya will add a number at the end.
+		if value.lstrip(":") != self.referenceNamespace.lstrip(":"):
+			mc.file( self.getReferenceFile(), e=True, namespace=value )		
+
+class DagNode(Node):
+	
+	def __init__( self, mObject, mFnDependencyNode, mDagPath ):
+		super( DagNode, self ).__init__( mObject, mFnDependencyNode )
+
+		self._MDagPath = mDagPath
+
+	def __str__( self ):
+		return self._MDagPath.partialPathName()
 
 	@property
 	def root( self ):
@@ -190,42 +303,11 @@ class Node(object):
 		return r
 
 	@property
-	def attrs( self ):
-		return self.attributes
-	
-	@property
-	def attributes( self ):
-		return NodeAttributeCollection( self )
-
-	@property
-	def animation( self ):
-		return Animation( [self.name] )
-
-	@property
-	def connections( self ):
-		return NodeConnectionList( self )
-
-	@property
-	def outputs( self ):
-		return NodeConnectionList( self, source=False )
-
-	@property
-	def inputs( self ):
-		return NodeConnectionList( self, destination=False )
-
-	def getInputs( self, **args ):
-		return NodeList( [str(self)] ).getInputs( **args )
-
-	def getOutputs( self, **args ):
-		return NodeList( [str(self)] ).getOutputs( **args )
-
-	@property
 	def isShape( self ):
 		return mc.objectType( str(self), isAType="shape")
 
 	@property
 	def shapes( self ):
-		
 		return NodeList( mc.listRelatives( str(self), shapes=True, ni=True, path=True ) )
 	
 	# Returns an iterator
@@ -243,62 +325,6 @@ class Node(object):
 		# Shapes
 		for shape in self.shapes:
 			yield shape
-	
-	def delete( self ):
-		mc.delete( str(self) )
-		
-	def createInstance( self, **kwArgs ):
-	
-		return Node( mc.instance( str(self), **kwArgs )[0], False )
-	
-	def createIntermediateObject( this ):
-		iop = Node( mc.duplicate( str(this) )[0] )
-		io  = iop.shapes[0]
-		mc.parent( str(io), str(this.parent), s=True, add=True )
-		mc.delete( str(iop) )
-		io["io"].value = True
-
-		return io
-	
-	@property
-	def isReferenced( this ):
-		return mc.referenceQuery( str(this), isNodeReferenced=True )
-
-	@property
-	def referenceNode( this ):
-		try:
-			return Node( mc.referenceQuery( str(this), referenceNode=True ) )
-		except:
-			return None
-
-	def referenceFile( self ):
-		return self.getReferenceFile( widthoutCopyNumber=True )
-
-	def getReferenceFile( self, withoutCopyNumber=False ):
-		return mc.referenceQuery( str(self), filename=True, withoutCopyNumber=withoutCopyNumber )
-
-	def isLoaded( self ):
-		return mc.referenceQuery( str(self), isLoaded=True )
-
-	def loadReference( self ):
-		mc.file( self.getReferenceFile(), loadReference=str(self) )
-
-	def unloadReference( self ):
-		referenceFile = mc.referenceQuery( str(self), filename=True )
-		mc.file( self.getReferenceFile(), unloadReference=True )
-
-	def removeReference( self, removeRemainingNodes=False ):
-		mc.file( self.getReferenceFile(), removeReference=True, force=removeRemainingNodes )
-
-	@property
-	def referenceNamespace( self ):
-		return mc.referenceQuery( str(self), namespace=True )
-
-	@referenceNamespace.setter
-	def referenceNamespace( self, value ):
-		# Avoid to assign the same value because maya will add a number at the end.
-		if value.lstrip(":") != self.referenceNamespace.lstrip(":"):
-			mc.file( self.getReferenceFile(), e=True, namespace=value )		
 
 class NodeAttribute(object):
 
