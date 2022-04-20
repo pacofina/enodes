@@ -225,6 +225,20 @@ class Node(object):
 		if value.lstrip(":") != self.referenceNamespace.lstrip(":"):
 			mc.file( self.getReferenceFile(), e=True, namespace=value )		
 
+class ReferenceNode(Node):
+
+	@property
+	def topReference( self ):
+		p = self.parent
+		return p.topReference if p else self
+	
+	@property
+	def parent( self ):
+		p = mc.referenceQuery( str(self), parent=True, referenceNode=True )
+		return ReferenceNode( p ) if p else None
+
+registerCustomType( 'reference', ReferenceNode )
+
 class DagNode(Node):
 	
 	def __init__( self, mObject, mFnDependencyNode, mDagPath ):
