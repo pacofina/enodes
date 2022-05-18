@@ -227,6 +227,21 @@ class Node(object):
 
 class ReferenceNode(Node):
 
+	@staticmethod
+	def fromFile( filename ):
+		"""
+		Returns the instance of a ReferenceNode that has the filename in the scene.
+		"""
+		return ReferenceNode( mc.referenceQuery( filename, referenceNode=True ) )
+
+	@property
+	def filename( self ):
+		return mc.referenceQuery( str(self), filename=True, withoutCopyNumber=True )
+
+	@filename.setter
+	def filename( self, value ):
+		mc.file( value, loadReference=str(self) )
+
 	@property
 	def topReference( self ):
 		p = self.parent
@@ -236,6 +251,23 @@ class ReferenceNode(Node):
 	def parent( self ):
 		p = mc.referenceQuery( str(self), parent=True, referenceNode=True )
 		return ReferenceNode( p ) if p else None
+
+	def hasFailedEdits( self ):
+		edits       = mc.referenceQuery( str(self), editStrings=True, failedEdits=True )
+		sucessEdits = mc.referenceQuery( str(self), editStrings=True, failedEdits=False )
+		failedEdits = set(edits).difference(sucessEdits)
+
+		return bool(failedEdits)
+
+	@property
+	def namespace( self ):
+		return mc.referenceQuery( str(self), namespace=True )
+
+	@namespace.setter
+	def namespace( self, value ):
+		# Avoid to assign the same value because maya will add a number at the end.
+		if value.lstrip(":") != self.namespace.lstrip(":"):
+			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), e=True, namespace=value )
 
 registerCustomType( 'reference', ReferenceNode )
 
