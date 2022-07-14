@@ -269,6 +269,8 @@ class ReferenceNode(Node):
 		if value.lstrip(":") != self.namespace.lstrip(":"):
 			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), e=True, namespace=value )
 
+	# def importReference( self ):
+	# 	mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), i=True )
 registerCustomType( 'reference', ReferenceNode )
 
 class DagNode(Node):
@@ -399,7 +401,7 @@ class NodeAttribute(object):
 		return NodeAttribute( self._node, self._attribute +"[%d]" % index )
 
 	def __iter__( self ):
-		indexes = mc.getAttr( str(self), multiIndices=True )
+		indexes = mc.getAttr( str(self), multiIndices=True ) or range( mc.getAttr( str(self), size=True ) )
 		
 		if indexes:
 			for index in indexes:
