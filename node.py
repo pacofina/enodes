@@ -253,11 +253,7 @@ class ReferenceNode(Node):
 		return ReferenceNode( p ) if p else None
 
 	def hasFailedEdits( self ):
-		edits       = mc.referenceQuery( str(self), editStrings=True, failedEdits=True )
-		sucessEdits = mc.referenceQuery( str(self), editStrings=True, failedEdits=False )
-		failedEdits = set(edits).difference(sucessEdits)
-
-		return bool(failedEdits)
+		return any( edit.isFailed() for edit in self._iter_api1_edits() )
 
 	@property
 	def namespace( self ):
@@ -271,6 +267,22 @@ class ReferenceNode(Node):
 
 	# def importReference( self ):
 	# 	mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), i=True )
+
+	def _iter_api1_edits( self ):
+
+		import maya.OpenMaya as api1
+		
+		list = api1.MSelectionList()
+		list.add( str(self) )
+		obj = api1.MObject()
+		list.getDependNode(0,obj)
+		
+		it = api1.MItEdits( obj )
+		
+		while not it.isDone():
+			yield it.edit()
+			it.next()
+
 registerCustomType( 'reference', ReferenceNode )
 
 class DagNode(Node):
@@ -481,8 +493,6 @@ class NodeAttribute(object):
 
 		if type == "float3" or type == "double3":
 			return value[0]
-		elif type == "componentList":
-			raise Exception()
 		else:
 			return value
 	
@@ -494,6 +504,8 @@ class NodeAttribute(object):
 			mc.setAttr( str(self), value[0], value[1], value[2] )
 		elif type == "matrix" or type == "string":
 			mc.setAttr( str(self), value, type=type )
+		elif type == 'componentList':
+			mc.setAttr( str(self), len(value), *value, type='componentList' )
 		else:
 			mc.setAttr( str(self), value )
 
