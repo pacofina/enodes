@@ -253,7 +253,10 @@ class ReferenceNode(Node):
 		return ReferenceNode( p ) if p else None
 
 	def hasFailedEdits( self ):
-		return any( edit.isFailed() for edit in self._iter_api1_edits() )
+		return self.isLoaded() and any( edit.isFailed() for edit in self._iter_api1_edits() )
+
+	def clearFailedEdits( self ):
+		mc.referenceEdit( str(self), failedEdits=True, successfulEdits=False, removeEdits=True )
 
 	@property
 	def namespace( self ):
@@ -268,7 +271,7 @@ class ReferenceNode(Node):
 	# def importReference( self ):
 	# 	mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), i=True )
 
-	def _iter_api1_edits( self ):
+	def _get_api1_MItEdits( self ):
 
 		import maya.OpenMaya as api1
 		
@@ -277,7 +280,11 @@ class ReferenceNode(Node):
 		obj = api1.MObject()
 		list.getDependNode(0,obj)
 		
-		it = api1.MItEdits( obj )
+		return api1.MItEdits( obj )
+	
+	def _iter_api1_edits( self ):
+
+		it = self._get_api1_MItEdits()
 		
 		while not it.isDone():
 			yield it.edit()
