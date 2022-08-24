@@ -268,8 +268,8 @@ class ReferenceNode(Node):
 		if value.lstrip(":") != self.namespace.lstrip(":"):
 			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), e=True, namespace=value )
 
-	# def importReference( self ):
-	# 	mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), i=True )
+	def importNodes( self ):
+		mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
 
 	def _get_api1_MItEdits( self ):
 
