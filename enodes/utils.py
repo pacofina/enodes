@@ -4,21 +4,22 @@ def iter_MObjectAndMDagPath( *names ):
 
     sel = MSelectionList()
 	
-    for index, name in enumerate( names ):
+    for name in names:
         try:
             sel.add( name )
         except RuntimeError:
             raise ValueError( "Node '%s' doesn't exists." % name )
         
-        mObject = sel.getDependNode( index )
+        mObject = sel.getDependNode(0)
         try:
-            mDagPath = sel.getDagPath( index )
+            mDagPath = sel.getDagPath(0)
 
             yield mObject, mDagPath
         except TypeError:
             # Object is not a DagPath
             yield mObject, None
-            pass
+
+        sel.remove(0)
 
 def splitName( name ):
 
