@@ -258,6 +258,15 @@ class ReferenceNode(Node):
 	def clearFailedEdits( self ):
 		mc.referenceEdit( str(self), failedEdits=True, successfulEdits=False, removeEdits=True )
 
+	def unload( self ):
+		self.unloadReference()
+	
+	def reload( self ):
+		self.loadReference()
+
+	def isExportEditsFile( self ):
+		return mc.referenceQuery( str(self), isExportEdits=True )
+	
 	@property
 	def namespace( self ):
 		return mc.referenceQuery( str(self), namespace=True )
@@ -270,6 +279,14 @@ class ReferenceNode(Node):
 
 	def importNodes( self ):
 		mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
+
+	def collapse( self, mergeNamespaceWithRoot=False ):
+		if mergeNamespaceWithRoot:
+			ns = self.namespace
+			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
+			mc.namespace( removeNamespace=ns, mergeNamespaceWithRoot=mergeNamespaceWithRoot )
+		else:
+			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
 
 	def _get_api1_MItEdits( self ):
 
@@ -515,6 +532,10 @@ class NodeAttribute(object):
 			mc.setAttr( str(self), len(value), *value, type='componentList' )
 		else:
 			mc.setAttr( str(self), value )
+
+	@property
+	def defaultValue( self ):
+		raise NotImplementedError()
 
 	@property
 	def locked( self ):
