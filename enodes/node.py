@@ -535,7 +535,11 @@ class NodeAttribute(object):
 
 	@property
 	def defaultValue( self ):
-		raise NotImplementedError()
+		return mc.addAttr( str(self), dv=True, q=True )
+
+	@defaultValue.setter
+	def defaultValue( self, value ):
+		mc.addAttr( str(self), dv=value, e=True )
 
 	@property
 	def locked( self ):
