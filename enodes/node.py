@@ -242,6 +242,11 @@ class ReferenceNode(Node):
 	def filename( self, value ):
 		mc.file( value, loadReference=str(self) )
 
+	def copyNumber( self ):
+		filename = mc.referenceQuery( str(self), filename=True )
+		match    = re.search( r"\{(?P<n>\d+)\}$", filename )
+		return int(match.group("n")) if match else 0
+
 	@property
 	def topReference( self ):
 		p = self.parent
