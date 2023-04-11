@@ -217,7 +217,8 @@ class Node(object):
 
 	@property
 	def referenceNamespace( self ):
-		return mc.referenceQuery( str(self), namespace=True )
+		# when the reference is unloaded the referenceQuery returns unknown. I get the file name and then the namespace
+		return mc.file( mc.referenceQuery( str(self), filename=True ), namespace=True, q=True )
 
 	@referenceNamespace.setter
 	def referenceNamespace( self, value ):
@@ -293,7 +294,7 @@ class ReferenceNode(Node):
 		else:
 			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
 
-	def _get_api1_MItEdits( self ):
+	def _get_api1_MItEdits( self, **kwargs ):
 
 		import maya.OpenMaya as api1
 		
@@ -302,7 +303,7 @@ class ReferenceNode(Node):
 		obj = api1.MObject()
 		list.getDependNode(0,obj)
 		
-		return api1.MItEdits( obj )
+		return api1.MItEdits( obj, **kwargs )
 	
 	def _iter_api1_edits( self ):
 
