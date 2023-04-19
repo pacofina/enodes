@@ -60,6 +60,7 @@ class Node(object):
 		return Node( mc.createNode( type, **args ), False )
 
 	def __init__( self, mObject, mFnDependencyNode ):
+		self._MObject           = mObject
 		self._MObjectHandle     = om.MObjectHandle( mObject )
 		self._MFnDependencyNode = mFnDependencyNode
 		
@@ -82,6 +83,15 @@ class Node(object):
 	def __hash__( self ):
 		return self._MObjectHandle.hashCode()
 	
+	@property
+	def MObject( self ):
+		return self._MObject
+
+	# @property
+	# def MFnBase( self ):
+	# 	""" Returns the MFnBase child clase based on the node type. For a DagNode returns MFnDagNode, for a Mesh return MFnMesh."""
+	# 	return self._MFnDependencyNode
+
 	@property
 	def isDagNode( self ):
 		return isinstance( self, DagNode)
@@ -172,19 +182,6 @@ class Node(object):
 	def delete( self ):
 		mc.delete( str(self) )
 		
-	def createInstance( self, **kwArgs ):
-	
-		return Node( mc.instance( str(self), **kwArgs )[0], False )
-	
-	def createIntermediateObject( this ):
-		iop = Node( mc.duplicate( str(this) )[0] )
-		io  = iop.shapes[0]
-		mc.parent( str(io), str(this.parent), s=True, add=True )
-		mc.delete( str(iop) )
-		io["io"].value = True
-
-		return io
-	
 	@property
 	def isReferenced( this ):
 		return mc.referenceQuery( str(this), isNodeReferenced=True )
@@ -313,8 +310,6 @@ class ReferenceNode(Node):
 			yield it.edit()
 			it.next()
 
-registerCustomType( 'reference', ReferenceNode )
-
 class DagNode(Node):
 	
 	def __init__( self, mObject, mFnDependencyNode, mDagPath ):
@@ -324,6 +319,14 @@ class DagNode(Node):
 
 	def __str__( self ):
 		return self._MDagPath.partialPathName()
+
+	@property
+	def MDagPath( self ):
+		return self._MDagPath
+	
+	# @property
+	# def MFnDagNode( self ):
+	# 	return self._MFnDependencyNode
 
 	@property
 	def root( self ):
@@ -415,6 +418,22 @@ class DagNode(Node):
 		# Shapes
 		for shape in self.shapes:
 			yield shape
+
+class MeshNode(DagNode):
+	
+	def createIntermediateObject( self ):
+		plug    = self._MFnDependencyNode.findPlug("outMesh", False)
+		mObject = om.MFnMesh().copy(plug.asMObject(), self.parent._MObject)
+		
+		fn = om.MFnDagNode(mObject)
+		fn.setName( self._MFnDependencyNode.name() +"Orig" )
+		fn.isIntermediateObject = True
+		
+		return MeshNode(mObject=mObject, mDagPath=fn.getAllPaths()[0])
+
+registerCustomType( 'reference', ReferenceNode )
+registerCustomType( 'mesh', MeshNode )
+
 
 class NodeAttribute(object):
 
