@@ -280,16 +280,24 @@ class ReferenceNode(Node):
 		if value.lstrip(":") != self.namespace.lstrip(":"):
 			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), e=True, namespace=value )
 
-	def importNodes( self ):
-		mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
-
-	def collapse( self, mergeNamespaceWithRoot=False ):
-		if mergeNamespaceWithRoot:
-			ns = self.namespace
+	def ls( self, **kwargs ):
+		return Node.ls( mc.referenceQuery( str(self), nodes=True ), **kwargs )
+	
+	def importReference( self, removeNamespace=False ):
+		if removeNamespace:
+			ns = mc.referenceQuery( str(self), namespace=True )
 			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
-			mc.namespace( removeNamespace=ns, mergeNamespaceWithRoot=mergeNamespaceWithRoot )
+			
+			if ns != ":":
+				mc.namespace( removeNamespace=ns, mergeNamespaceWithRoot=True )
 		else:
 			mc.file( mc.referenceQuery( str(self), filename=True, withoutCopyNumber=False ), ir=True )
+
+	def importNodes( self ):
+		self.importReference( removeNamespace=False )
+	
+	def collapse( self, mergeNamespaceWithRoot=False ):
+		self.importReference( removeNamespace=mergeNamespaceWithRoot )
 
 	def _get_api1_MItEdits( self, **kwargs ):
 
