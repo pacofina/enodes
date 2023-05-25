@@ -1,5 +1,5 @@
 
-Easer way to work with nodes in maya
+Easier way to work with nodes in maya
 =========================
 
 ### Import the base class
