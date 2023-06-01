@@ -16,9 +16,14 @@ node = Node("persp")
 
 ### Getting and setting attributes
 ```
-print( node["tx"].value )
-node["tx"].value = node["ty"].value = 10
+print( node.tx.value )
+node.tx.value = node.ty.value = node.tz.value = 10
+
+for attr in ["tx","ty","tz"]:
+    node[attr].value = 10
+
 node["r"].value = (10,10,10)
+node.scale.value = (0.5,0.5,0.5)
 ```
 
 ### Getting the world matrix
