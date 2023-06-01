@@ -21,6 +21,20 @@ def iter_MObjectAndMDagPath( *names ):
 
         sel.remove(0)
 
+def iter_MPlugs( *plugs_names ):
+
+    sel = MSelectionList()
+	
+    for plug in plugs_names:
+        try:
+            sel.add( plug )
+        except RuntimeError:
+            raise ValueError( "Plug '%s' doesn't exists." % plug )
+        
+        yield sel.getPlug(0)
+
+        sel.remove(0)
+
 def splitName( name ):
 
     dag = name.rfind('|')

@@ -452,6 +452,7 @@ class NodeAttribute(object):
 	
 	def __init__( self, node, attribute ):
 		self._node      = node
+		self._plug      = None
 		self._attribute = attribute
 
 	def __str__( self ):
@@ -494,6 +495,14 @@ class NodeAttribute(object):
 	@property
 	def node( self ):
 		return self._node
+
+	@property
+	def MPlug( self ):
+		"""Returns the instance of the maya api MPlug"""
+		if not self._plug:
+			self._plug = next( utils.iter_MPlugs( str(self) ) )
+
+		return self._plug
 
 	@property
 	def name( self ):
@@ -574,6 +583,20 @@ class NodeAttribute(object):
 	def defaultValue( self, value ):
 		mc.addAttr( str(self), dv=value, e=True )
 
+	@property
+	def parent( self ):
+		plug   = self.MPlug
+		
+		try:
+			parent = plug.array() if plug.isElement else plug.parent()
+		except TypeError:
+			return None
+		
+		attr = NodeAttribute( self._node, parent.partialName( False, False, True, False, False, True ) )
+		attr._plug = parent
+
+		return attr
+	
 	@property
 	def locked( self ):
 		return mc.getAttr( str(self), lock=True )
