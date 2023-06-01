@@ -776,11 +776,17 @@ class NodeConnectionList(object):
 		for s, d in self._iterPlugs():
 			yield NodeAttribute.fromName( s ), NodeAttribute.fromName( d )
 
+	def __len__( self ):
+		return bool(self._listConnections())
+	
 	def __bool__( self ):
-		return next( (True for n in self._iterPlugs()), False )
+		return bool(self._listConnections())
+
+	def __nonzero__( self ):
+		return self.__bool__()
 	
 	def _iterPlugs( self ):
-		conns = mc.listConnections( str(self._node), plugs=True, connections=True, **self._args ) or []
+		conns = self._listConnections() or []
 		
 		if self._mode == 1:
 			z = zip( conns[1::2], conns[0::2] )
@@ -790,6 +796,9 @@ class NodeConnectionList(object):
 			raise NotImplementedError( "Can't list sources and destinations in the same list." )
 
 		return z
+
+	def _listConnections( self ):
+		return mc.listConnections( str(self._node), plugs=True, connections=True, **self._args )
 	
 	@property
 	def nodes( self ):
