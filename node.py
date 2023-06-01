@@ -740,8 +740,12 @@ class NodeAttribute(object):
 				
 		return r
 
-	def delete( this ):
-		mc.deleteAttr( str(this) )
+	def delete( this, **kwargs ):
+		"""Removes the attribute or the element of an array. Use 'b' to force break connections."""
+		if this.MPlug.isElement:
+			mc.removeMultiInstance( str(this), **kwargs )
+		else:
+			mc.deleteAttr( str(this) )
 
 	def findByAlias( this, alias ):
 		
