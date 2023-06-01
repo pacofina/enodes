@@ -73,6 +73,9 @@ class Node(object):
 
 	def __getitem__( self, attribute ):
 		return self.attributes[ attribute ]
+
+	def __getattr__( self, attribute ):
+		return self.attributes[ attribute ]
 	
 	def __eq__( self, other ):
 		return str(self) == str(other)
@@ -464,8 +467,13 @@ class NodeAttribute(object):
 	def __getitem__( self, index ):
 		if isinstance( index, int ):
 			return self._getByIndex( index )
+		elif isinstance( index, str ):
+			return getattr(self, index)
 		else:
-			return NodeAttribute( self._node, self._attribute +"."+ index )
+			raise TypeError()
+
+	def __getattr__( self, name ):
+		return NodeAttribute( self._node, self._attribute +"."+ name )
 
 	def _getByIndex( self, index ):
 		return NodeAttribute( self._node, self._attribute +"[%d]" % index )
