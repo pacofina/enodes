@@ -560,10 +560,16 @@ class NodeAttribute(object):
 	def length( self, value ):
 		return mc.setAttr( str(self), size=value )
 
+	def get_value( self, **kwargs ):
+		"""Calls cmds.getAttr with any extra argument and returns the value. Use time argument to get value at any time."""
+		return mc.getAttr( str(self), **kwargs )
+
 	@property
 	def value( self ):
+		"""Gets the value of the attribute at current time.
+		For float3 or double3 returns the first element of the array [(0,0,0)]."""
 		type  = self.type
-		value = mc.getAttr( str(self) )
+		value = self.get_value()
 
 		if type == "float3" or type == "double3":
 			return value[0]
