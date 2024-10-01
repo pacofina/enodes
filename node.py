@@ -257,6 +257,10 @@ class ReferenceNode(Node):
 	def parent( self ):
 		p = mc.referenceQuery( str(self), parent=True, referenceNode=True )
 		return ReferenceNode( p ) if p else None
+	
+	@property
+	def children( self ):
+		return Node.ls( mc.referenceQuery( str(self), child=True, referenceNode=True ) )
 
 	def hasFailedEdits( self ):
 		return self.isLoaded() and any( edit.isFailed() for edit in self._iter_api1_edits() )
@@ -272,6 +276,14 @@ class ReferenceNode(Node):
 
 	def isExportEditsFile( self ):
 		return mc.referenceQuery( str(self), isExportEdits=True )
+	
+	def iter_assemblies( self ):
+		"""Iterates transform nodes that are parent to the world or their parents don't belong to this reference."""
+		
+		transforms = [(n,n.MDagPath.length()) for n in Node.ls(mc.referenceQuery( str(self), nodes=True ), type="transform")]
+		level      = min( (l for n,l in transforms) )
+
+		return (n for n, l in transforms if l == level)
 	
 	@property
 	def namespace( self ):
