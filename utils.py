@@ -1,3 +1,4 @@
+from maya import cmds
 from maya.api.OpenMaya import MSelectionList
 
 def iter_MObjectAndMDagPath( *names ):
@@ -53,3 +54,25 @@ def splitName( name ):
             return name[ :dag ], None, name[ dag + 1: ]
         else:
             return name[ :dag ], name[ dag + 1:n ], name[ n + 1: ]
+
+class UndoChunk:
+    def __init__(self, undo_on_exit=True, chunk_name=None  ):
+        self._undo_on_exit = undo_on_exit
+        self._chunk_name = chunk_name
+        self._undo_state = None
+
+    def __enter__(self):
+        self._undo_state = cmds.undoInfo(q=True,state=True)
+        cmds.undoInfo(state=True)
+        cmds.undoInfo( openChunk=True, chunkName=self._chunk_name )
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        is_empty = cmds.undoInfo(q=True,undoQueueEmpty=True)
+        
+        cmds.undoInfo( closeChunk=True )
+
+        if not is_empty and self._undo_on_exit:
+            cmds.undo()
+            
+        cmds.undoInfo(state=self._undo_state)
