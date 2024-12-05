@@ -281,9 +281,12 @@ class ReferenceNode(Node):
 		"""Iterates transform nodes that are parent to the world or their parents don't belong to this reference."""
 		
 		transforms = [(n,n.MDagPath.length()) for n in Node.ls(mc.referenceQuery( str(self), nodes=True ), type="transform")]
-		level      = min( (l for n,l in transforms) )
 
-		return (n for n, l in transforms if l == level)
+		if len(transforms) > 0:
+			level = min( (l for n, l in transforms) )
+			return (n for n, l in transforms if l == level)
+		else:
+			return iter([])
 	
 	@property
 	def namespace( self ):
