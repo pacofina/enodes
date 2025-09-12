@@ -15,27 +15,7 @@ _nodetypes = {}
 def registerCustomType( type_name, type ):
 	_nodetypes[ type_name ] = type
 
-class NodeMetaclass(type):
-
-	def __call__( self, name=None, mObject=None, mDagPath=None ):
-		if name:
-			mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
-		
-		dependencyNode = om.MFnDependencyNode( mObject )
-
-		if mDagPath:
-			customtype = _nodetypes.get( dependencyNode.typeName, DagNode )
-			instance   = object.__new__( customtype )
-			instance.__init__( mObject, dependencyNode, mDagPath )
-		else:
-			customtype = _nodetypes.get( dependencyNode.typeName, Node )
-			instance   = object.__new__( customtype )
-			instance.__init__( mObject, dependencyNode )
-
-		return instance
-
 class Node(object):
-	__metaclass__ = NodeMetaclass
 
 	@staticmethod
 	def ls( *args, **kwArgs ):
@@ -59,10 +39,30 @@ class Node(object):
 	def create( type, **args ):
 		return Node( mc.createNode( type, **args ), False )
 
-	def __init__( self, mObject, mFnDependencyNode ):
+	def __new__( cls, name ):
+		
+		mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
+		
+		dependencyNode = om.MFnDependencyNode( mObject )
+		
+		if mDagPath:
+			customtype = _nodetypes.get( dependencyNode.typeName, DagNode )
+			instance   = object.__new__( customtype )
+			instance.__preinit__( mObject, dependencyNode, mDagPath )
+		else:
+			customtype = _nodetypes.get( dependencyNode.typeName, Node )
+			instance   = object.__new__( customtype )
+			instance.__preinit__( mObject, dependencyNode )
+			
+		return instance
+
+	def __preinit__( self, mObject, mFnDependencyNode ):
 		self._MObject           = mObject
 		self._MObjectHandle     = om.MObjectHandle( mObject )
 		self._MFnDependencyNode = mFnDependencyNode
+	
+	def __init__( self, name ):
+		pass
 		
 	def __str__( self ):
 		
@@ -338,8 +338,8 @@ class ReferenceNode(Node):
 
 class DagNode(Node):
 	
-	def __init__( self, mObject, mFnDependencyNode, mDagPath ):
-		super( DagNode, self ).__init__( mObject, mFnDependencyNode )
+	def __preinit__( self, mObject, mFnDependencyNode, mDagPath ):
+		super( DagNode, self ).__preinit__( mObject, mFnDependencyNode )
 
 		self._MDagPath = mDagPath
 
