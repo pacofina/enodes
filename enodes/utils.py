@@ -60,19 +60,20 @@ class UndoChunk:
         self._undo_on_exit = undo_on_exit
         self._chunk_name = chunk_name
         self._undo_state = None
+        self._undo_length = None
 
     def __enter__(self):
         self._undo_state = cmds.undoInfo(q=True,state=True)
+        self._undo_length = cmds.undoInfo(query=True)
         cmds.undoInfo(state=True)
         cmds.undoInfo( openChunk=True, chunkName=self._chunk_name )
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        is_empty = cmds.undoInfo(q=True,undoQueueEmpty=True)
-        
         cmds.undoInfo( closeChunk=True )
-
-        if not is_empty and self._undo_on_exit:
+        
+        # Undo only if the self._undo_length is different than before
+        if self._undo_on_exit and self._undo_length < cmds.undoInfo(query=True):
             cmds.undo()
             
         cmds.undoInfo(state=self._undo_state)
