@@ -15,27 +15,7 @@ _nodetypes = {}
 def registerCustomType( type_name, type ):
 	_nodetypes[ type_name ] = type
 
-class NodeMetaclass(type):
-
-	def __call__( self, name=None, mObject=None, mDagPath=None ):
-		if name:
-			mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
-		
-		dependencyNode = om.MFnDependencyNode( mObject )
-
-		if mDagPath:
-			customtype = _nodetypes.get( dependencyNode.typeName, DagNode )
-			instance   = object.__new__( customtype )
-			instance.__init__( mObject, dependencyNode, mDagPath )
-		else:
-			customtype = _nodetypes.get( dependencyNode.typeName, Node )
-			instance   = object.__new__( customtype )
-			instance.__init__( mObject, dependencyNode )
-
-		return instance
-
 class Node(object):
-	__metaclass__ = NodeMetaclass
 
 	@staticmethod
 	def ls( *args, **kwArgs ):
@@ -57,12 +37,35 @@ class Node(object):
 
 	@staticmethod
 	def create( type, **args ):
-		return Node( mc.createNode( type, **args ), False )
+		return Node( mc.createNode( type, **args ) )
 
-	def __init__( self, mObject, mFnDependencyNode ):
+	@staticmethod
+	def fromMObject( mObject, mDagPath=None ):
+		
+		dependencyNode = om.MFnDependencyNode( mObject )
+		
+		if mDagPath:
+			customtype = _nodetypes.get( dependencyNode.typeName, DagNode )
+			instance   = object.__new__( customtype )
+			instance.__constructor__( mObject, dependencyNode, mDagPath )
+		else:
+			customtype = _nodetypes.get( dependencyNode.typeName, Node )
+			instance   = object.__new__( customtype )
+			instance.__constructor__( mObject, dependencyNode )
+			
+		return instance
+
+	def __constructor__( self, mObject, mFnDependencyNode ):
 		self._MObject           = mObject
 		self._MObjectHandle     = om.MObjectHandle( mObject )
 		self._MFnDependencyNode = mFnDependencyNode
+	
+	def __new__(self, name ):
+		mObject, mDagPath = next( utils.iter_MObjectAndMDagPath( name ) )
+		return Node.fromMObject( mObject, mDagPath )
+	
+	def __init__( self, name ):
+		pass
 		
 	def __str__( self ):
 		
@@ -82,6 +85,9 @@ class Node(object):
 
 	def __ne__( self, other ):
 		return not self.__eq__( other )
+
+	def __lt__( self, other ):
+		return str(self).__lt__( str(other) )
 
 	def __hash__( self ):
 		return self._MObjectHandle.hashCode()
@@ -338,8 +344,8 @@ class ReferenceNode(Node):
 
 class DagNode(Node):
 	
-	def __init__( self, mObject, mFnDependencyNode, mDagPath ):
-		super( DagNode, self ).__init__( mObject, mFnDependencyNode )
+	def __constructor__( self, mObject, mFnDependencyNode, mDagPath ):
+		super( DagNode, self ).__constructor__( mObject, mFnDependencyNode )
 
 		self._MDagPath = mDagPath
 
@@ -368,7 +374,7 @@ class DagNode(Node):
 		p = mc.listRelatives( str(self), parent=True, path=True )
 
 		if p:
-			return Node( p[0], False )
+			return Node( p[0] )
 		else:
 			return None
 			
@@ -438,7 +444,7 @@ class DagNode(Node):
 			# Children Shapes
 			if childs:
 				for child in childs:
-					for shape in Node( child, False ).getShapes( True ):
+					for shape in Node( child ).getShapes( True ):
 						yield shape
 
 		# Shapes
@@ -686,7 +692,7 @@ class NodeAttribute(object):
 		conn = mc.connectionInfo( str(self), sourceFromDestination=True )
 		
 		if conn:
-			return NodeAttribute( Node( conn[ :conn.index('.') ], False ), conn[ conn.index('.') + 1: ] )
+			return NodeAttribute( Node( conn[ :conn.index('.') ] ), conn[ conn.index('.') + 1: ] )
 		else:
 			return None
 
@@ -834,12 +840,12 @@ class NodeConnectionList(object):
 			for conn in conns:
 				if not conn in out:
 					out.append( conn )
-					yield Node( conn, False )
+					yield Node( conn )
 
 class NodeList(object):
 	
 	def __init__( self, innerList ):
-		self._innerList = [Node( mObject=o, mDagPath=d ) for o, d in utils.iter_MObjectAndMDagPath( *innerList )] if innerList else []
+		self._innerList = [Node.fromMObject(o, d) for o, d in utils.iter_MObjectAndMDagPath( *innerList )] if innerList else []
 		
 	def __str__( self ):
 		return str( self._innerList )
